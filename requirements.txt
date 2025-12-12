@@ -1,0 +1,14 @@
+streamlit
+pydantic
+PyMuPDF
+pytesseract
+Pillow
+langchain
+langchain_groq
+langgraph
+python-dotenv
+numpy
+pandas
+matplotlib
+seaborn
+rapidfuzz
