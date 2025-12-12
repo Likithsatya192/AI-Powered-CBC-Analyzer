@@ -1,5 +1,4 @@
-## AI-Powered CBC Analyzer
-
+## Multi-Model AI Agent for Automated Health Diagnostics
 Streamlit app that ingests CBC lab reports (PDF or image), performs OCR, extracts key hematology parameters, validates them against configured reference ranges, interprets them (normal / low / high), and presents the results in interactive tables with CSV export and basic charts.
 
 ### Features
