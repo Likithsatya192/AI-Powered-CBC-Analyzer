@@ -12,5 +12,14 @@
   "Eosinophils": { "unit": "%", "reference": { "low": 0, "high": 6 } },
   "Monocytes": { "unit": "%", "reference": { "low": 0, "high": 10 } },
   "Basophils": { "unit": "%", "reference": { "low": 0, "high": 2 } },
-  "Platelet Count": { "unit": "cumm", "reference": { "low": 150000, "high": 410000 } }
+  "Platelet Count": { "unit": "cumm", "reference": { "low": 150000, "high": 410000 } },
+  "ESR": { "unit": "mm/hr", "reference": { "low": 0, "high": 20 } },
+  "MPV": { "unit": "fL", "reference": { "low": 6.0, "high": 12.0 } },
+  "PDW": { "unit": "%", "reference": { "low": 9.0, "high": 17.0 } },
+  "PCT": { "unit": "%", "reference": { "low": 0.1, "high": 0.5 } },
+  "Absolute Neutrophils": { "unit": "cumm", "reference": { "low": 1800, "high": 7800 } },
+  "Absolute Lymphocytes": { "unit": "cumm", "reference": { "low": 1000, "high": 4800 } },
+  "Absolute Eosinophils": { "unit": "cumm", "reference": { "low": 0, "high": 500 } },
+  "Absolute Monocytes": { "unit": "cumm", "reference": { "low": 200, "high": 950 } },
+  "Absolute Basophils": { "unit": "cumm", "reference": { "low": 0, "high": 200 } }
 }

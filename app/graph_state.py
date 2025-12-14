@@ -7,4 +7,19 @@ class ReportState(BaseModel):
     extracted_params: Dict[str, Dict[str, Any]] = {}
     validated_params: Dict[str, Dict[str, Any]] = {}
     param_interpretation: Dict[str, Dict[str, Any]] = {}
+
+    # Patient Context
+    patient_info: Dict[str, str] = {}
+     
+    # Model 2 Output
+    patterns: List[str] = []
+    risk_assessment: Dict[str, Any] = {}
+    
+    # Model 3 Output
+    context_analysis: Dict[str, Any] = {}
+    
+    # Synthesis & Recommendations
+    synthesis_report: Optional[str] = None
+    recommendations: List[str] = []
+    
     errors: List[str] = []

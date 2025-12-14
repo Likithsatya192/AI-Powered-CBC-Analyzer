@@ -2,7 +2,7 @@ from langgraph.graph import StateGraph, END
 from app.graph_state import ReportState
 
 from nodes.ingest_and_ocr import ingest_and_ocr_node
-from nodes.extract_parameters import extract_parameters_node
+from heuristic.extract_parameters_heuristic import extract_parameters_node_heuristic
 from nodes.validate_standardize import validate_standardize_node
 from nodes.model1_interpretation import model1_interpretation_node
 from nodes.model2_patterns import model2_patterns_node
@@ -14,7 +14,8 @@ def build_graph():
     workflow = StateGraph(ReportState)
 
     workflow.add_node("ingest_and_ocr", ingest_and_ocr_node)
-    workflow.add_node("extract_parameters", extract_parameters_node)
+    # Use the heuristic node here, but keep the name "extract_parameters" to match edges
+    workflow.add_node("extract_parameters", extract_parameters_node_heuristic)
     workflow.add_node("validate_standardize", validate_standardize_node)
     workflow.add_node("model1_interpretation", model1_interpretation_node)
     workflow.add_node("model2_patterns", model2_patterns_node)

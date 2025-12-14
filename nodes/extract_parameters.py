@@ -1,24 +1,37 @@
-import re
-from typing import Dict, Any, Optional, Tuple, List
-from rapidfuzz import process, fuzz
+from typing import Optional, Union
+from pydantic import BaseModel, Field
+from utils.llm_utils import get_llm
 
-# Canonical CBC parameters with rich synonym lists to improve matching across labs.
-CBC_PARAMS = {
-    "Hemoglobin": ["hemoglobin", "hb", "hgb", "heme"],
-    "Total RBC count": ["total rbc", "rbc count", "rbc"],
-    "Packed Cell Volume": ["pcv", "packed cell volume", "hematocrit", "hct"],
-    "MCV": ["mcv", "mean corpuscular volume"],
-    "MCH": ["mch", "mean corpuscular hemoglobin"],
-    "MCHC": ["mchc", "mean corpuscular hemoglobin concentration"],
-    "RDW": ["rdw", "red cell dist", "red cell distribution width"],
-    "Total WBC count": ["total wbc", "wbc count", "wbc", "white blood cell"],
-    "Neutrophils": ["neutrophil", "neutro"],
-    "Lymphocytes": ["lymphocytes", "lympho"],
-    "Eosinophils": ["eosinophils", "eosino", "eos"],
-    "Monocytes": ["monocytes", "mono"],
-    "Basophils": ["basophils", "baso"],
-    "Platelet Count": ["platelet", "platelet count", "plt"],
-}
+class ExtractedValue(BaseModel):
+    value: float = Field(description="The numeric value extracted.")
+    unit: Optional[str] = Field(description="The unit of the value found in text.")
+
+class ExtractionOutput(BaseModel):
+    # Allow strings because LLMs often quote numbers (e.g. "12.5") failing strict float validation
+    Hemoglobin: Optional[Union[float, str]] = None
+    RBC: Optional[Union[float, str]] = Field(None, description="Total RBC Count")
+    PCV: Optional[Union[float, str]] = Field(None, description="Packed Cell Volume / Hematocrit")
+    MCV: Optional[Union[float, str]] = None
+    MCH: Optional[Union[float, str]] = None
+    MCHC: Optional[Union[float, str]] = None
+    RDW: Optional[Union[float, str]] = None
+    WBC: Optional[Union[float, str]] = Field(None, description="Total WBC Count")
+    Neutrophils: Optional[Union[float, str]] = None
+    Lymphocytes: Optional[Union[float, str]] = None
+    Eosinophils: Optional[Union[float, str]] = None
+    Monocytes: Optional[Union[float, str]] = None
+    Basophils: Optional[Union[float, str]] = None
+    Platelets: Optional[Union[float, str]] = Field(None, description="Platelet Count")
+    ESR: Optional[Union[float, str]] = None
+    MPV: Optional[Union[float, str]] = None
+    PDW: Optional[Union[float, str]] = None
+    PCT: Optional[Union[float, str]] = None
+    
+    # Patient Demographics
+    PatientName: Optional[str] = None
+    Age: Optional[Union[str, int]] = None
+    Gender: Optional[str] = None
+
 
 # Expected units for display fallback
 DEFAULT_UNITS = {
@@ -36,80 +49,104 @@ DEFAULT_UNITS = {
     "Monocytes": "%",
     "Basophils": "%",
     "Platelet Count": "cumm",
+    "ESR": "mm/hr",
+    "MPV": "fL",
+    "PDW": "%",
+    "PCT": "%",
+    "Absolute Neutrophils": "cumm",
+    "Absolute Lymphocytes": "cumm",
+    "Absolute Eosinophils": "cumm",
+    "Absolute Monocytes": "cumm",
+    "Absolute Basophils": "cumm",
 }
 
-# Accept comma-separated numbers like 10,000 or 150,000
-NUM = re.compile(r"([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]{1,7}(?:\.[0-9]+)?)")
-
-
-def _best_param_match(clean_line: str) -> Optional[str]:
-    """
-    Choose the best matching parameter name for a cleaned line of text.
-    Uses fuzzy matching across the synonym lists.
-    """
-    candidates = []
-    for pname, tokens in CBC_PARAMS.items():
-        for token in tokens:
-            score = fuzz.partial_ratio(token, clean_line)
-            candidates.append((score, pname))
-    if not candidates:
+def _parse_float(val: Union[float, str, None]) -> Optional[float]:
+    if val is None:
         return None
-    best = max(candidates, key=lambda x: x[0])
-    return best[1] if best[0] >= 70 else None
-
+    if isinstance(val, float) or isinstance(val, int):
+        return float(val)
+    try:
+        # cleanup string "12.5 g/dL" -> 12.5
+        clean = str(val).replace(",", "").strip()
+        # Extract first number if mixed text
+        import re
+        match = re.search(r"(\d+(\.\d+)?)", clean)
+        if match:
+            return float(match.group(1))
+        return float(clean)
+    except:
+        return None
 
 def extract_parameters_node(state):
     """
-    Parse OCR/text output from CBC reports and extract parameter values.
-    The logic tolerates noisy OCR and flexible table layouts by:
-      - fuzzy matching known parameter synonyms
-      - grabbing the first numeric token as the result column
-      - applying unit/scale fallbacks
+    Refined extraction using LLM to parse complex tables.
+    Matches standard keys to state.extracted_params structure.
     """
     text = state.raw_text or ""
-    lines = text.splitlines()
+    if not text.strip():
+        return {"extracted_params": {}, "errors": state.errors + ["No text to extract from."]}
 
+    llm = get_llm()
+    structured_llm = llm.with_structured_output(ExtractionOutput)
+    
+    prompt = f"""
+    Extract CBC blood test parameters and patient info from the following OCR text.
+    
+    TEXT:
+    {text}
+    
+    RULES:
+    - Extract ONLY the "Result" value. Do not extract Reference Range numbers!
+    - For Platelets, usually >100,000. If text says "1.5" lakhs, convert to 150000.
+    - If a value is missing, match it to None.
+    - Extract Patient Name, Age, Gender if available.
+    """
+    
     extracted = {}
-
-    for line in lines:
-        clean = re.sub(r"[^\w.%/\- ]", " ", line).strip().lower()
-        if len(clean) < 3:
-            continue
-
-        matched_param = _best_param_match(clean)
-        if not matched_param:
-            continue
-
-        # Extract all numeric tokens on the line
-        nums = []
-        for m in NUM.finditer(clean):
-            token = m.group(1).replace(",", "")
-            try:
-                nums.append(float(token))
-            except ValueError:
-                continue
-        if not nums:
-            continue
-
-        # Heuristic: the FIRST number is the result column
-        result_value = nums[0]
-
-        scale_note = None
-        # Adjust RBC scale if OCR returns 500 instead of 5.00
-        if matched_param == "Total RBC count" and result_value > 20:
-            scale_note = "Scaled down by /100 to match millions/cumm"
-            result_value = result_value / 100
-
-        # Adjust Platelet count if OCR returns in lakhs
-        if matched_param == "Platelet Count" and result_value < 1000:
-            scale_note = "Scaled up by *1000 to match cumm"
-            result_value = result_value * 1000
-
-        extracted[matched_param] = {
-            "raw_value": nums[0],
-            "value": result_value,
-            "unit": DEFAULT_UNITS.get(matched_param),
-            "scale_note": scale_note,
+    patient_info = {}
+    
+    try:
+        res = structured_llm.invoke(prompt)
+        
+        # Map back to internal keys
+        mapping = {
+            "Hemoglobin": "Hemoglobin",
+            "RBC": "Total RBC count",
+            "PCV": "Packed Cell Volume",
+            "MCV": "MCV",
+            "MCH": "MCH",
+            "MCHC": "MCHC",
+            "RDW": "RDW",
+            "WBC": "Total WBC count",
+            "Neutrophils": "Neutrophils",
+            "Lymphocytes": "Lymphocytes",
+            "Eosinophils": "Eosinophils",
+            "Monocytes": "Monocytes",
+            "Basophils": "Basophils",
+            "Platelets": "Platelet Count",
+            "ESR": "ESR",
+            "MPV": "MPV",
+            "PDW": "PDW",
+            "PCT": "PCT",
         }
+        
+        for attr, canonical in mapping.items():
+            raw = getattr(res, attr)
+            val = _parse_float(raw)
+            if val is not None:
+                extracted[canonical] = {
+                    "raw_value": raw,
+                    "value": val,
+                    "unit": DEFAULT_UNITS.get(canonical),
+                    "scale_note": "Extracted by LLM"
+                }
 
-    return {"extracted_params": extracted}
+        if res.PatientName: patient_info["Name"] = res.PatientName
+        if res.Age: patient_info["Age"] = str(res.Age)
+        if res.Gender: patient_info["Gender"] = res.Gender
+
+    except Exception as e:
+        # Fallback? Or just report error.
+        return {"extracted_params": {}, "errors": state.errors + [f"LLM Extraction failed: {str(e)}"]}
+
+    return {"extracted_params": extracted, "patient_info": patient_info}

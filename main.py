@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import StringIO
 
-from app.run_pipeline import run_full_pipeline
+from heuristic.run_pipeline_heuristic import run_full_pipeline
 
 # Streamlit Config
 st.set_page_config(
@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 st.title("🩸 Instant CBC Analysis")
-st.caption("Upload Patient Lab Report (PDF/Image)")
+st.caption("Upload Patient Lab Report (PDF/Image) - Using Regex Extraction")
 
 uploaded = st.file_uploader(
     "Upload Report",
