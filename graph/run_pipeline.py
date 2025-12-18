@@ -1,5 +1,5 @@
-from app.graph_builder import build_graph
-from app.graph_state import ReportState
+from graph.graph_builder import build_graph
+from graph.graph_state import ReportState
 
 def run_full_pipeline(file_path):
     graph_app = build_graph()

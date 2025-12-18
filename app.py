@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import StringIO
 
-from app.run_pipeline import run_full_pipeline
+from graph.run_pipeline import run_full_pipeline
 
 # Streamlit Config
 st.set_page_config(

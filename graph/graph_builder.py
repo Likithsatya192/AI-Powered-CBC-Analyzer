@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, END
-from app.graph_state import ReportState
+from graph.graph_state import ReportState
 
 from nodes.ingest_and_ocr import ingest_and_ocr_node
 from nodes.extract_parameters import extract_parameters_node

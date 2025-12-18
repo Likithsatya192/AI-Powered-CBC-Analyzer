@@ -4,17 +4,12 @@ A state-of-the-art Multi-Agent AI system designed to analyze Complete Blood Coun
 
 ---
 
-## 🏗️ How We Built This Project (From Scratch to Complete)
-This project was built to bridge the gap between complex medical data and patient understanding. We started with a simple goal: upload a PDF/Image of a blood report and get a clear, human-readable summary.
+## 🏗️ Project Architecture
+This project bridges the gap between complex medical data and patient understanding by using a **LangGraph** based agentic workflow.
 
-**Evolution:**
-1.  **Phase 1: Heuristic MVP**: Initially, we used Regex and Fuzzy Matching to scrape numbers from text. It worked for perfect PDFs but failed on skewed scans or complex tables.
-2.  **Phase 2: Agentic Workflow**: We introduced **LangGraph** to create a modular pipeline. Instead of one giant script, we broke the logic into "Nodes" (Ingestion, Interpretation, Synthesis).
-3.  **Phase 3: The LLM Revolution**: We replaced the fragile Regex logic with **Llama-3.3-70b**. Now, instead of hunting for keywords, the AI *reads* the document like a human doctor, understanding context, units, and nuances.
-4.  **Phase 4: Multi-Model Intelligence**: We added specialized sub-agents:
-    *   **Pattern Recognition Agent**: Spot clinical patterns (e.g., Iron Deficiency Anemia).
-    *   **Context Agent**: Adjusts findings based on Patient Age & Gender.
-    *   **Synthesis Agent**: Writes the final "Senior Consultant" style report.
+**Key Features:**
+*   **LLM Extraction**: Uses **Llama-3.3-70b** to read documents like a human doctor.
+*   **Multi-Model Intelligence**: Specialized agents for Pattern Recognition, Context Analysis, and Report Synthesis.
 
 ---
 
@@ -56,7 +51,7 @@ The application runs on a **LangGraph** pipeline, where data floats through a se
 ```mermaid
 graph TD
     Start[User Upload] --> Ingest[Ingest & OCR Node]
-    Ingest --> Extract["Extract Parameters (LLM/Heuristic)"]
+    Ingest --> Extract["Extract Parameters (LLM)"]
     
     Extract --> Validate[Validate & Standardize Node]
     Validate --> Interpret[Model 1: Range Interpretation]
@@ -85,7 +80,6 @@ Here is how every file contributes to the project:
 
 ### 1. Root Directory
 *   **`app.py`**: **Main Application**. Runs the **LLM (AI)** pipeline. Contains the Streamlit UI code for the dashboard, file uploader, and visualization cards.
-*   **`main.py`**: **Heuristic Application**. Runs the **Regex (Legacy)** pipeline. Used for comparing the old method vs. the new AI method.
 *   **`requirements.txt`**: Dependency list (`streamlit`, `langchain`, `pydantic`, etc.).
 
 ### 2. `nodes/` (The Brain)
@@ -98,21 +92,17 @@ Here is how every file contributes to the project:
 *   **`synthesis.py`**: "Writer AI" - Drafts the final report signature.
 *   **`recommendations.py`**: "Advisor AI" - Gives health tips.
 
-### 3. `app/` (Orchestration)
-*   **`graph_state.py`**: The shared memory object (`ReportState`) passed between all nodes.
-*   **`graph_builder.py`**: Defines the workflow (A connects to B connects to C).
-*   **`run_pipeline.py`**: Function to start the engine.
+### 3. `graph/` (The Application Logic)
+*   **`graph_state.py`**: Defines the data object (`ReportState`) that is passed between nodes. It's like the "memory" of the pipeline.
+*   **`graph_builder.py`**: Connects the `nodes` together into the Flowchart/Graph shown above (for the LLM App).
+*   **`run_pipeline.py`**: The trigger function that starts the graph execution.
 
-### 4. `heuristic/` (The Old Way)
-*   **`extract_parameters_heuristic.py`**: The old code that used Regex loops to find data. Preserved for legacy support.
-*   **`graph_builder_heuristic.py`**: Graph definition for the heuristic version.
-
-### 5. `utils/` (Helpers)
+### 4. `utils/` (Helpers)
 *   **`llm_utils.py`**: Configures the connection to Groq API.
 *   **`ocr_utils.py`**: Image processing helper for Tesseract.
 *   **`reference_ranges.py`**: Reads the medical database.
 
-### 6. `configs/`
+### 5. `configs/`
 *   **`reference_ranges.json`**: The database of normal blood values (Men vs Women).
 
 ---
