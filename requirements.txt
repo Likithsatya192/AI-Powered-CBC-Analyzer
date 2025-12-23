@@ -16,3 +16,9 @@ supabase
 fastapi
 uvicorn
 python-multipart
+qdrant-client
+sentence-transformers
+langchain-huggingface
+langchain-qdrant
+langchain-text-splitters
+langchain-community

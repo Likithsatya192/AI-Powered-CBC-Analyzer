@@ -2,9 +2,16 @@ import streamlit as st
 import tempfile
 import pandas as pd
 import matplotlib.pyplot as plt
+import uuid
+import fitz  # PyMuPDF
+from PIL import Image
 from io import StringIO
 
 from graph.run_pipeline import run_full_pipeline
+from graph.rag_pipeline import run_rag_pipeline
+
+# ... (rest of imports are fine, but ensure rag_pipeline is used) is a placeholder comment from previous edit.
+# We need to ensure the imports are actually valid python.
 
 # Streamlit Config
 st.set_page_config(
@@ -13,24 +20,60 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🩸 Instant CBC Analysis")
-st.caption("Upload Patient Lab Report (PDF/Image)")
+# Centered Title
+st.markdown("<h1 style='text-align: center; font-weight: bold;'>🩸 Instant CBC Analysis</h1>", unsafe_allow_html=True)
 
-uploaded = st.file_uploader(
-    "Upload Report",
-    type=["pdf", "jpg", "jpeg", "png"],
-    help="Supports PDF or common image formats."
-)
+with st.sidebar:
+    st.caption("Upload Patient Lab Report (PDF/Image)")
 
+    uploaded = st.file_uploader(
+        "Upload Report",
+        type=["pdf", "jpg", "jpeg", "png"],
+        help="Supports PDF or common image formats."
+    )
+    
+    if uploaded:
+        st.divider()
+        st.markdown("**📄 File Preview**")
+        try:
+            # Check file type
+            if uploaded.type == "application/pdf":
+                # Create a temporary file to read with fitz if simple bytes usage fails or just use bytes
+                # fitz.open(stream=..., filetype="pdf") works with bytes
+                doc = fitz.open(stream=uploaded.read(), filetype="pdf")
+                uploaded.seek(0) # Reset pointer for later use
+                
+                if len(doc) > 0:
+                    page = doc.load_page(0)  # number of page
+                    pix = page.get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    st.image(img, caption="Page 1 Preview", use_container_width=True)
+            else:
+                st.image(uploaded, caption="Uploaded Image", use_container_width=True)
+        except Exception as e:
+            st.error(f"Could not detail preview: {e}")
+
+# Main Logic
 if uploaded:
     # Save temp file
     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded.name.split('.')[-1]}") as tmp:
         tmp.write(uploaded.read())
+        uploaded.seek(0)
         file_path = tmp.name
 
-    with st.status("Processing report… please wait", expanded=False) as status:
-        result = run_full_pipeline(file_path)
-        status.update(label="Processing complete", state="complete")
+    # Check if we need to re-run analysis
+    # Condition: No result in session OR new file uploaded (name changed)
+    if "analysis_result" not in st.session_state or st.session_state.get("last_uploaded_file") != uploaded.name:
+        with st.status("Processing report… please wait", expanded=False) as status:
+            result = run_full_pipeline(file_path)
+            st.session_state.analysis_result = result
+            st.session_state.last_uploaded_file = uploaded.name
+            st.session_state.messages = [] # Clear chat history for new report
+            status.update(label="Processing complete", state="complete")
+    
+    # Retrieve result from session state
+    result = st.session_state.analysis_result
+
 
     # ==========================
     # Custom CSS for Premium UI
@@ -235,3 +278,49 @@ if uploaded:
         st.subheader("⚠️ Warnings / Errors")
         for err in result.errors:
             st.error(err)
+
+    # ==========================
+    # 7) AI Chat Assistant
+    # ==========================
+    if result.rag_collection_name:
+        st.divider()
+        st.subheader("💬 Ask AI Assistant")
+        
+        # Initialize chat history
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+
+        if "session_id" not in st.session_state:
+            st.session_state.session_id = str(uuid.uuid4())
+
+        # Display chat messages from history on app rerun
+        # Sync with backend history for this session if needed, or rely on local state
+        # For simplicity, we trust the local state history which mirrors the backend
+        
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # React to user input
+        if prompt := st.chat_input("Ask a question about this report..."):
+            # Display user message in chat message container
+            st.chat_message("user").markdown(prompt)
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Get response
+            with st.spinner("Thinking..."):
+                try:
+                    answer = run_rag_pipeline(
+                        prompt, 
+                        result.rag_collection_name, 
+                        st.session_state.session_id,
+                        report_context=result
+                    )
+                    # Display assistant response in chat message container
+                    with st.chat_message("assistant"):
+                        st.markdown(answer)
+                    # Add assistant response to chat history
+                    st.session_state.messages.append({"role": "assistant", "content": answer})
+                except Exception as e:
+                    st.error(f"Error generating answer: {e}")

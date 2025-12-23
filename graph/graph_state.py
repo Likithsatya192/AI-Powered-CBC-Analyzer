@@ -22,4 +22,7 @@ class ReportState(BaseModel):
     synthesis_report: Optional[str] = None
     recommendations: List[str] = []
     
+    # RAG Context
+    rag_collection_name: Optional[str] = None
+    
     errors: List[str] = []
