@@ -56,38 +56,49 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Create .env file with secrets on the server
+            # 1. Create .env file with secrets
             echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > .env
             echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> .env
             echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
             
+            # 2. Create docker-compose.yml
+            cat <<EOF > docker-compose.yml
+            version: '3.8'
+            services:
+              backend:
+                image: ${{ secrets.DOCKER_USERNAME }}/health-ai-backend:latest
+                container_name: health_ai_backend
+                ports:
+                  - "8000:8000"
+                env_file: .env
+                restart: always
+            
+              frontend:
+                image: ${{ secrets.DOCKER_USERNAME }}/health-ai-frontend:latest
+                container_name: health_ai_frontend
+                ports:
+                  - "80:80"
+                depends_on:
+                  - backend
+                restart: always
+            EOF
+            
+            # 3. Pull and Deploy
+            # Determine if we should use 'docker compose' (v2) or 'docker-compose' (v1)
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE_CMD="sudo docker compose"
+            else
+              COMPOSE_CMD="sudo docker-compose"
+            fi
+            
+            echo "Using compose command: $COMPOSE_CMD"
+            
             # Pull latest images
-            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/health-ai-backend:latest
-            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/health-ai-frontend:latest
+            $COMPOSE_CMD pull
             
-            # Create docker-compose.yml if it doesn't exist (or overwrite it)
-            echo "version: '3.8'" > docker-compose.yml
-            echo "services:" >> docker-compose.yml
-            echo "  backend:" >> docker-compose.yml
-            echo "    image: ${{ secrets.DOCKER_USERNAME }}/health-ai-backend:latest" >> docker-compose.yml
-            echo "    container_name: health_ai_backend" >> docker-compose.yml
-            echo "    ports:" >> docker-compose.yml
-            echo "      - '8000:8000'" >> docker-compose.yml
-            echo "    env_file: .env" >> docker-compose.yml
-            echo "    restart: always" >> docker-compose.yml
+            # Restart services
+            $COMPOSE_CMD down --remove-orphans || true
+            $COMPOSE_CMD up -d --force-recreate
             
-            echo "  frontend:" >> docker-compose.yml
-            echo "    image: ${{ secrets.DOCKER_USERNAME }}/health-ai-frontend:latest" >> docker-compose.yml
-            echo "    container_name: health_ai_frontend" >> docker-compose.yml
-            echo "    ports:" >> docker-compose.yml
-            echo "      - '80:80'" >> docker-compose.yml
-            echo "    depends_on:" >> docker-compose.yml
-            echo "      - backend" >> docker-compose.yml
-            echo "    restart: always" >> docker-compose.yml
-            
-            # Stop and remove old containers, then start new ones
-            sudo docker compose down || true
-            sudo docker compose up -d
-            
-            # Cleanup unused images
+            # 4. Cleanup unused images
             sudo docker image prune -f
