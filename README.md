@@ -8,14 +8,14 @@ AI-powered medical analysis tool that processes medical documents (PDFs, Images,
 -   **RAG Chatbot**: Ask questions about your uploaded documents and get context-aware answers.
 -   **Authentication**: Secure Google Sign-In and Email/Password authentication via Firebase.
 -   **Modern UI**: Responsive, glassmorphism-styled frontend built with React and Tailwind CSS.
--   **Scalable Backend**: FastAPI-based backend with Qdrant vector database for efficient retrieval.
+-   **Scalable Backend**: FastAPI-based backend with Pinecone vector database for efficient retrieval.
 -   **Production Ready**: Dockerized application with CI/CD pipeline for AWS deployment.
 
 ## 🛠️ Tech Stack
 
 -   **Frontend**: React, Vite, Tailwind CSS, Framer Motion, Firebase Auth
 -   **Backend**: FastAPI, LangChain, Langgraph, Groq LLM
--   **Database**: Qdrant (Vector DB)
+-   **Database**: Pinecone (Vector DB)
 -   **Infrastructure**: Docker, Docker Compose, Nginx
 -   **CI/CD**: GitHub Actions, AWS EC2
 
@@ -48,8 +48,8 @@ Create a `.env` file in the root directory for the backend (if running locally w
 ```bash
 # .env
 GROQ_API_KEY=your_groq_api_key
-QDRANT_URL=your_qdrant_url
-QDRANT_API_KEY=your_qdrant_api_key
+PINECONE_API_KEY=your_pinecone_api_key
+PINECONE_INDEX_NAME=your_pinecone_index_name
 ```
 
 ### 3. Run with Docker Compose
@@ -80,6 +80,8 @@ You must configure the following Secrets in your GitHub Repository settings (**S
 | `VITE_FIREBASE_STORAGE_BUCKET` | Firebase Storage Bucket |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase Messaging Sender ID |
 | `VITE_FIREBASE_APP_ID` | Firebase App ID |
+| `PINECONE_API_KEY` | API Key for Pinecone Vector DB |
+| `PINECONE_INDEX_NAME` | Name of the Pinecone Index |
 
 ### 2. Deployment
 Pushing to the `main` branch will automatically trigger the deployment workflow:

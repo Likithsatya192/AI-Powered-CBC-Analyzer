@@ -16,9 +16,9 @@ supabase
 fastapi
 uvicorn
 python-multipart
-qdrant-client
+pinecone-client
 sentence-transformers
 langchain-huggingface
-langchain-qdrant
+langchain-pinecone
 langchain-text-splitters
 langchain-community
